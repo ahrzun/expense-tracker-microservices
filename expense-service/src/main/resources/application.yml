@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: expense-service
+
+server:
+  # Overridable per environment; the default matches the documented local port.
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      # Move the Actuator endpoint group off /actuator, so health is served
+      # at /health rather than /actuator/health.
+      base-path: /
+      exposure:
+        # Health is the ONLY endpoint exposed over HTTP. /env, /beans,
+        # /configprops and friends stay off until explicitly needed.
+        include: health

@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: api-gateway
+
+server:
+  # Overridable per environment; the default matches the documented local port.
+  port: ${SERVER_PORT:8083}
+
+management:
+  endpoints:
+    web:
+      # Move the Actuator endpoint group off /actuator, so health is served
+      # at /health rather than /actuator/health.
+      base-path: /
+      exposure:
+        # Health is the ONLY endpoint exposed over HTTP. /env, /beans,
+        # /configprops and friends stay off until explicitly needed.
+        include: health
+
+# No spring.cloud.gateway.routes yet. Routing and JWT validation arrive in a
+# later slice; Slice 1 only proves the reactive gateway application starts.

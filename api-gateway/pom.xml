@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.expensetracker</groupId>
+        <artifactId>expense-tracker</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>api-gateway</artifactId>
+    <name>api-gateway</name>
+    <description>Edge API gateway (Spring Cloud Gateway on WebFlux / Netty)</description>
+
+    <!--
+      IMPORTANT: this module must NEVER depend on spring-boot-starter-web.
+
+      Spring Cloud Gateway is built on Spring WebFlux. If spring-boot-starter-web
+      is anywhere on this classpath (even transitively), Spring Boot auto-configures
+      a servlet web application on Tomcat instead of a reactive one on Netty, and
+      the gateway refuses to start:
+
+          "Spring MVC found on classpath, which is incompatible with Spring Cloud Gateway."
+
+      Verify with:  mvn -pl api-gateway dependency:tree
+      There must be no spring-boot-starter-web and no tomcat-embed-core.
+    -->
+
+    <dependencies>
+        <!-- Reactive Spring Cloud Gateway server. Pulls in spring-boot-starter-webflux
+             (Netty) transitively. Note the artifact name: the -server-webmvc variant
+             is the NON-reactive gateway and must not be used here. -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
+        </dependency>
+
+        <!-- Provides /health, served by WebFlux on this module. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!--
+              Enforce the WebFlux-only rule mechanically rather than by convention.
+              If anything ever drags spring-boot-starter-web or Tomcat into this
+              module's classpath, the build fails here instead of at runtime.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-servlet-stack</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.springframework.boot:spring-boot-starter-web</exclude>
+                                        <exclude>org.apache.tomcat.embed:tomcat-embed-core</exclude>
+                                    </excludes>
+                                    <message>
+                                        api-gateway must stay on the reactive stack. Spring Cloud Gateway
+                                        requires WebFlux; spring-boot-starter-web / Tomcat on this classpath
+                                        makes Boot start a servlet container and the gateway fails to boot.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

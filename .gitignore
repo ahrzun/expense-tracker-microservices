@@ -1,0 +1,19 @@
+# Maven
+target/
+
+# Local environment overrides (secrets). Commit .env.example instead.
+.env
+
+# IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+

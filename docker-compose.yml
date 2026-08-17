@@ -1,0 +1,147 @@
+# Local orchestration for the Expense Tracker platform.
+#
+# Project name is set explicitly because the containing directory is
+# "Expense Tracker" — Compose cannot derive a valid project name from a
+# path containing a space.
+name: expense-tracker
+
+services:
+
+  # ---------------------------------------------------------------- database
+  postgres:
+    image: postgres:16
+    container_name: expense-tracker-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-expense_tracker}
+      POSTGRES_USER: ${POSTGRES_USER:-expense_tracker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-expense_tracker_local}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - expense-net
+    healthcheck:
+      # pg_isready ships in the postgres image and reports whether the server is
+      # actually ACCEPTING CONNECTIONS. "Container started" is not the same
+      # thing: postgres runs initdb/recovery for several seconds after the
+      # process exists, during which connections are refused.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-expense_tracker} -d ${POSTGRES_DB:-expense_tracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ------------------------------------------------------- expense-service
+  expense-service:
+    build:
+      # Context is the repo root: each module's parent POM lives there.
+      context: .
+      dockerfile: expense-service/Dockerfile
+    container_name: expense-tracker-expense-service
+    environment:
+      SERVER_PORT: 8081
+    ports:
+      - "8081:8081"
+    networks:
+      - expense-net
+    depends_on:
+      postgres:
+        # Not plain `depends_on:`. Plain depends_on only orders container
+        # STARTUP — Docker treats the dependency as satisfied the instant the
+        # process spawns. service_healthy blocks until postgres's own
+        # healthcheck passes.
+        condition: service_healthy
+    healthcheck:
+      # Hits the application's real /health endpoint over HTTP, so "healthy"
+      # means the Spring context started and is serving requests.
+      # -f turns a non-2xx response into a non-zero exit, which is what Docker reads.
+      # curl is installed explicitly in the Dockerfile; it is not in the base JRE image.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # ---------------------------------------------------------- auth-service
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    container_name: expense-tracker-auth-service
+    environment:
+      SERVER_PORT: 8082
+    ports:
+      - "8082:8082"
+    networks:
+      - expense-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # ----------------------------------------------------- analytics-service
+  analytics-service:
+    build:
+      context: .
+      dockerfile: analytics-service/Dockerfile
+    container_name: expense-tracker-analytics-service
+    environment:
+      SERVER_PORT: 8084
+    ports:
+      - "8084:8084"
+    networks:
+      - expense-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # ------------------------------------------------------------ api-gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: expense-tracker-api-gateway
+    environment:
+      SERVER_PORT: 8083
+    ports:
+      - "8083:8083"
+    networks:
+      - expense-net
+    depends_on:
+      # The edge starts last, and only once every service it will eventually
+      # route to is answering HTTP.
+      expense-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+networks:
+  # A user-defined bridge network gives the containers Docker's embedded DNS:
+  # services address each other by SERVICE NAME (e.g. http://expense-service:8081),
+  # never via localhost or a host port. The published host ports above are a
+  # separate, developer-only convenience for curling from the Mac.
+  expense-net:
+    driver: bridge
+
+volumes:
+  postgres-data:

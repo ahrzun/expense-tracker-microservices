@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      Root aggregator + parent.
+
+      This POM does two jobs:
+        1. Aggregates the four service modules so `mvn clean verify` builds everything.
+        2. Acts as the parent that pins dependency and plugin VERSIONS, so the
+           service POMs list dependencies without <version> tags.
+
+      It intentionally declares almost no <dependencies> of its own. Services
+      opt in to what they need; nothing is forced on them from above.
+    -->
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.15</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.expensetracker</groupId>
+    <artifactId>expense-tracker</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>expense-tracker</name>
+    <description>Cloud-native expense management platform (Spring Boot microservices)</description>
+
+    <modules>
+        <module>expense-service</module>
+        <module>auth-service</module>
+        <module>api-gateway</module>
+        <module>analytics-service</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--
+          Spring Cloud 2025.0.3 is the release train matched to Spring Boot 3.5.15.
+          Mismatching these is the most common cause of obscure gateway startup
+          failures, so the pair is pinned deliberately.
+        -->
+        <spring-cloud.version>2025.0.3</spring-cloud.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>
