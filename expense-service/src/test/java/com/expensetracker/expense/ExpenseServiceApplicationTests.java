@@ -10,14 +10,12 @@ import org.springframework.http.ResponseEntity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Boots the real application on a random port and asserts that Actuator serves
- * health at /health (not /actuator/health).
- *
- * <p>This is the meaningful test for the skeleton slice: it proves both that the
- * context starts and that the relocated Actuator base path is wired correctly.
+ * Boots the real application against a real PostgreSQL container and asserts
+ * that Actuator serves health at /health — and that health now reflects actual
+ * database connectivity rather than just "the process is up".
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class ExpenseServiceApplicationTests {
+class ExpenseServiceApplicationTests extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -28,5 +26,16 @@ class ExpenseServiceApplicationTests {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("\"status\":\"UP\"");
+    }
+
+    @Test
+    void healthReportsDatabaseConnectivity() {
+        ResponseEntity<String> response = restTemplate.getForEntity("/health", String.class);
+
+        // The "db" component is contributed by Actuator's DataSourceHealthIndicator,
+        // which appeared automatically when a DataSource joined the context. A
+        // hand-written /health controller would not know the database exists.
+        assertThat(response.getBody()).contains("\"db\"");
+        assertThat(response.getBody()).contains("PostgreSQL");
     }
 }

@@ -2,17 +2,46 @@ spring:
   application:
     name: expense-service
 
+  datasource:
+    # Connection details come from the environment. Nothing is hard-coded here,
+    # and the defaults only make sense for local Docker Compose.
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/expense_tracker}
+    username: ${SPRING_DATASOURCE_USERNAME:expense_tracker}
+    password: ${SPRING_DATASOURCE_PASSWORD:expense_tracker_local}
+
+  flyway:
+    enabled: true
+    # This service owns exactly one schema and migrates only that schema. Its
+    # flyway_schema_history table lives inside it, so auth-service and
+    # analytics-service migration histories can never collide with this one.
+    schemas: expense_service
+    default-schema: expense_service
+    create-schemas: true
+
+  jpa:
+    hibernate:
+      # Hibernate NEVER writes DDL. Flyway owns the schema; Hibernate only checks
+      # that the mapping it inferred matches the tables Flyway actually created,
+      # and refuses to start if they have drifted.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: expense_service
+    open-in-view: false
+
 server:
-  # Overridable per environment; the default matches the documented local port.
   port: ${SERVER_PORT:8081}
 
 management:
   endpoints:
     web:
-      # Move the Actuator endpoint group off /actuator, so health is served
-      # at /health rather than /actuator/health.
       base-path: /
       exposure:
-        # Health is the ONLY endpoint exposed over HTTP. /env, /beans,
-        # /configprops and friends stay off until explicitly needed.
         include: health
+  endpoint:
+    health:
+      # Local default shows the per-component breakdown (including "db") so the
+      # database contribution is visible. This should be
+      # "never" or "when-authorized" in production, since it discloses
+      # infrastructure detail to anyone who can reach the port.
+      show-details: ${MANAGEMENT_HEALTH_SHOW_DETAILS:always}

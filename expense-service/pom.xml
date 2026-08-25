@@ -17,14 +17,46 @@
 
     <dependencies>
         <!-- Servlet stack (Tomcat). Blocking request/response is the right model
-             for a service that will talk to PostgreSQL over blocking JDBC. -->
+             for a service that talks to PostgreSQL over blocking JDBC. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Provides /health. As infrastructure dependencies (DataSource) are
-             added later, Actuator picks up their health indicators automatically. -->
+        <!-- Bean Validation on request DTOs, so bad input is rejected at the edge
+             of the controller rather than by a database constraint. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- JPA/Hibernate. Runs with ddl-auto=validate: Hibernate never writes DDL. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Flyway owns the schema. flyway-database-postgresql is a separate
+             artifact since Flyway 10 — without it Flyway does not recognise
+             PostgreSQL and fails at startup. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Provides /health. With a DataSource present, Actuator's DataSourceHealth-
+             Indicator registers automatically and /health starts reflecting real
+             database connectivity. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -33,6 +65,25 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Integration tests run against a real PostgreSQL 16 in Docker, not H2.
+             @ServiceConnection (spring-boot-testcontainers) wires the container's
+             JDBC URL into the context automatically. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

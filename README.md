@@ -2,8 +2,9 @@
 
 A cloud-native expense management platform built as Spring Boot microservices.
 
-**Current state: Slice 1 — runnable microservices skeleton.** Four services and PostgreSQL start,
-report health, and nothing else. There is no business functionality yet.
+**Current state: Slice 2 — expense persistence.** Four services and PostgreSQL start and report health;
+`expense-service` persists expenses to its own schema via Flyway and exposes CRUD. Authentication and
+gateway routing are not built yet.
 
 ---
 
@@ -79,6 +80,22 @@ Tear down (`-v` also drops the database volume):
 docker compose down -v
 ```
 
+## API
+
+`expense-service` (`:8081`) — unauthenticated for now; user scoping arrives with gateway JWT validation.
+
+| Method | Path | Result |
+|---|---|---|
+| `POST` | `/expenses` | 201 + `Location`; 400 with per-field errors on invalid input |
+| `GET` | `/expenses` | all expenses, most recent `spentOn` first |
+| `GET` | `/expenses/{id}` | one expense, or 404 |
+| `PUT` | `/expenses/{id}` | replaces the editable fields; `createdAt` is preserved |
+| `DELETE` | `/expenses/{id}` | 204, or 404 if unknown |
+
+```bash
+curl -X POST http://localhost:8081/expenses -H 'Content-Type: application/json' -d '{"description":"Weekly groceries","amount":42.50,"category":"FOOD","spentOn":"2026-08-20"}'
+```
+
 ## Configuration
 
 Compose reads database credentials via `${VAR:-default}` interpolation, so it runs with no `.env`
@@ -94,8 +111,9 @@ are hard-coded in application source.
   connection-string change rather than a redesign.
 - **Flyway, never `ddl-auto: update`.** Schema changes will be versioned, checksummed SQL files
   reviewed in a PR and shipped with the artifact — not DDL inferred at runtime from whatever entities
-  happen to be on the classpath. JPA will run with `ddl-auto: validate` so entity/table drift is a
-  startup failure rather than a production surprise. Neither dependency is added yet.
+  happen to be on the classpath. JPA runs with `ddl-auto: validate`, so entity/table drift is a
+  startup failure rather than a production surprise — verified by deliberately renaming a column and
+  watching the application refuse to boot.
 - **The gateway is reactive; the other three are not.** Spring Cloud Gateway is built on WebFlux, and
   a gateway's work is almost pure I/O — Netty's event loop handles many in-flight proxied requests on
   few threads. The other services are blocking CRUD over blocking JDBC, where the servlet model is
@@ -103,13 +121,14 @@ are hard-coded in application source.
   auto-configure a servlet container and the gateway would refuse to start. A `maven-enforcer` rule in
   [api-gateway/pom.xml](api-gateway/pom.xml) fails the build if that ever happens.
 - **Health via Actuator, not a custom controller.** `management.endpoints.web.base-path: /` serves the
-  endpoint at `/health`, and `exposure.include: health` keeps it the only HTTP-exposed endpoint. When a
-  `DataSource` is added later, Actuator's database health indicator appears automatically — a
-  hand-written controller returning `"OK"` would keep reporting healthy with a dead database.
+  endpoint at `/health`, and `exposure.include: health` keeps it the only HTTP-exposed endpoint. Now
+  that `expense-service` has a `DataSource`, Actuator's database health indicator registers itself and
+  `/health` returns 503 `DOWN` when PostgreSQL is unreachable — a hand-written controller returning
+  `"OK"` would have kept reporting healthy the whole time.
 - **No shared library module.** A `common`/`shared-dto` module re-couples services at compile time and
   forces lockstep redeploys. One will be introduced only if duplication genuinely hurts.
 
 ## Not yet implemented
 
-Expenses, budgets, users, registration/login, BCrypt, JWT, Spring Security, gateway routes and
-filters, analytics, LLM insights, Flyway migrations, JPA, GitHub Actions, AWS deployment.
+Budgets, users, registration/login, BCrypt, JWT, Spring Security, gateway routes and filters,
+per-user expense scoping, pagination, analytics, LLM insights, GitHub Actions, AWS deployment.

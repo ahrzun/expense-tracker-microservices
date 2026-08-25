@@ -41,6 +41,10 @@ services:
     container_name: expense-tracker-expense-service
     environment:
       SERVER_PORT: 8081
+      # Service name resolution over the expense-net bridge network, not localhost.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-expense_tracker}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-expense_tracker}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-expense_tracker_local}
     ports:
       - "8081:8081"
     networks:
