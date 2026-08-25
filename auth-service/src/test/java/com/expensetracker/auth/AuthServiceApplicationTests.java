@@ -9,21 +9,18 @@ import org.springframework.http.ResponseEntity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Boots the real application on a random port and asserts that Actuator serves
- * health at /health (not /actuator/health).
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class AuthServiceApplicationTests {
+class AuthServiceApplicationTests extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private TestRestTemplate restTemplate;
 
     @Test
-    void healthEndpointIsServedAtSlashHealth() {
+    void healthIsServedAtSlashHealthAndReportsTheDatabase() {
         ResponseEntity<String> response = restTemplate.getForEntity("/health", String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("\"status\":\"UP\"");
+        assertThat(response.getBody()).contains("\"db\"").contains("PostgreSQL");
     }
 }

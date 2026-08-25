@@ -2,9 +2,10 @@
 
 A cloud-native expense management platform built as Spring Boot microservices.
 
-**Current state: Slice 2 — expense persistence.** Four services and PostgreSQL start and report health;
-`expense-service` persists expenses to its own schema via Flyway and exposes CRUD. Authentication and
-gateway routing are not built yet.
+**Current state: Slice 3 — authentication.** Four services and PostgreSQL start and report health;
+`expense-service` persists expenses and `auth-service` registers users and issues HS256 JWTs, each in
+its own Flyway-managed schema. Nothing validates a token yet — gateway routing and JWT enforcement
+are the next slice.
 
 ---
 
@@ -96,11 +97,28 @@ docker compose down -v
 curl -X POST http://localhost:8081/expenses -H 'Content-Type: application/json' -d '{"description":"Weekly groceries","amount":42.50,"category":"FOOD","spentOn":"2026-08-20"}'
 ```
 
+`auth-service` (`:8082`) — public by definition; these endpoints are how a caller obtains a token.
+
+| Method | Path | Result |
+|---|---|---|
+| `POST` | `/auth/register` | 201 + token; 409 if the email exists (case-insensitive); 400 on invalid input |
+| `POST` | `/auth/login` | 200 + token; 401 for bad credentials |
+
+```bash
+curl -X POST http://localhost:8082/auth/register -H 'Content-Type: application/json' -d '{"email":"you@example.com","password":"correct-horse-battery-staple"}'
+```
+
 ## Configuration
 
-Compose reads database credentials via `${VAR:-default}` interpolation, so it runs with no `.env`
-file present. To override, copy [`.env.example`](.env.example) to `.env` (gitignored). No credentials
-are hard-coded in application source.
+**`JWT_SECRET` is required** — `docker compose up` refuses to start without it, deliberately. A signing
+key is an authentication bypass, not a config value, so it is never committed and has no default.
+
+```bash
+cp .env.example .env && printf 'JWT_SECRET=%s\n' "$(openssl rand -base64 48)" >> .env
+```
+
+Everything else has a local default baked into `docker-compose.yml` via `${VAR:-default}` interpolation.
+`.env` is gitignored; `.env.example` is committed. No credentials are hard-coded in application source.
 
 ## Key decisions
 
@@ -125,10 +143,17 @@ are hard-coded in application source.
   that `expense-service` has a `DataSource`, Actuator's database health indicator registers itself and
   `/health` returns 503 `DOWN` when PostgreSQL is unreachable — a hand-written controller returning
   `"OK"` would have kept reporting healthy the whole time.
+- **BCrypt (cost 12), not SHA-256.** Fast hashes are the wrong tool for passwords: a GPU does billions
+  of SHA-256 per second against a stolen table. BCrypt is deliberately slow, memory-hard enough to blunt
+  GPU parallelism, and salts every password automatically. The cost factor lives inside the hash, so it
+  can be raised later without invalidating stored passwords.
+- **JWTs are signed, not encrypted.** Anyone holding a token can read its claims, so it carries identity
+  (`sub`, `email`, `iss`, `iat`, `exp`) and never secrets. HMAC-SHA256 over the header and payload is
+  what makes it unforgeable — and only for as long as the signing key stays secret.
 - **No shared library module.** A `common`/`shared-dto` module re-couples services at compile time and
   forces lockstep redeploys. One will be introduced only if duplication genuinely hurts.
 
 ## Not yet implemented
 
-Budgets, users, registration/login, BCrypt, JWT, Spring Security, gateway routes and filters,
-per-user expense scoping, pagination, analytics, LLM insights, GitHub Actions, AWS deployment.
+Gateway routes and JWT validation, per-user expense scoping, refresh tokens and revocation, rate
+limiting on login, budgets, analytics, LLM insights, GitHub Actions, AWS deployment.

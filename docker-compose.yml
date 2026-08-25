@@ -75,6 +75,16 @@ services:
     container_name: expense-tracker-auth-service
     environment:
       SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-expense_tracker}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-expense_tracker}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-expense_tracker_local}
+      # Note the :? rather than :- used everywhere else. There is deliberately
+      # NO default: Compose refuses to start if JWT_SECRET is unset, instead of
+      # silently signing tokens with a key that lives in this file. Generate one
+      # into .env (gitignored) — see .env.example.
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required - generate one into .env, see .env.example}"
+      JWT_ISSUER: ${JWT_ISSUER:-expense-tracker-auth}
+      JWT_EXPIRY: ${JWT_EXPIRY:-1h}
     ports:
       - "8082:8082"
     networks:

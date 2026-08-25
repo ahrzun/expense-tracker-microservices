@@ -2,17 +2,48 @@ spring:
   application:
     name: auth-service
 
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/expense_tracker}
+    username: ${SPRING_DATASOURCE_USERNAME:expense_tracker}
+    password: ${SPRING_DATASOURCE_PASSWORD:expense_tracker_local}
+
+  flyway:
+    enabled: true
+    # auth-service owns auth_service and migrates nothing else. Its
+    # flyway_schema_history is separate from expense-service's, so the two
+    # services' migration timelines are completely independent.
+    schemas: auth_service
+    default-schema: auth_service
+    create-schemas: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: auth_service
+    open-in-view: false
+
+jwt:
+  # NO DEFAULT, deliberately. If JWT_SECRET is not supplied the application
+  # fails to start rather than falling back to a value that lives in the
+  # repository — a committed signing key would let anyone who can read this
+  # file mint a valid token for any user.
+  secret: ${JWT_SECRET}
+  issuer: ${JWT_ISSUER:expense-tracker-auth}
+  # Short enough that a stolen token expires on its own; long enough to be
+  # usable without refresh tokens, which this slice does not have.
+  expiry: ${JWT_EXPIRY:1h}
+
 server:
-  # Overridable per environment; the default matches the documented local port.
   port: ${SERVER_PORT:8082}
 
 management:
   endpoints:
     web:
-      # Move the Actuator endpoint group off /actuator, so health is served
-      # at /health rather than /actuator/health.
       base-path: /
       exposure:
-        # Health is the ONLY endpoint exposed over HTTP. /env, /beans,
-        # /configprops and friends stay off until explicitly needed.
         include: health
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_HEALTH_SHOW_DETAILS:always}

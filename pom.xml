@@ -47,6 +47,8 @@
           failures, so the pair is pinned deliberately.
         -->
         <spring-cloud.version>2025.0.3</spring-cloud.version>
+        <!-- JJWT is not managed by the Spring Boot BOM, so the version is pinned here. -->
+        <jjwt.version>0.12.7</jjwt.version>
     </properties>
 
     <dependencyManagement>
@@ -57,6 +59,26 @@
                 <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- JJWT ships as three artifacts: the compile-time API, and the
+                 implementation plus a Jackson serialiser that are runtime-only.
+                 Depending only on jjwt-api keeps application code off the
+                 internals. -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
